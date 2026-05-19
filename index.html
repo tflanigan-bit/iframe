@@ -382,13 +382,25 @@
 
   <div class="pills">
     <span class="pills-label">Quick:</span>
-    <button class="pill pill-featured" onclick="quickLoad('https://proxyorb.com')">🔮 ProxyOrb</button>
+    <button class="pill pill-featured" onclick="window.open('https://proxyorb.com','_blank','noopener')">🔮 ProxyOrb ↗</button>
     <button class="pill" onclick="quickLoad('https://en.wikipedia.org')">Wikipedia</button>
     <button class="pill" onclick="quickLoad('https://news.ycombinator.com')">Hacker News</button>
     <button class="pill" onclick="quickLoad('https://developer.mozilla.org')">MDN</button>
     <button class="pill" onclick="quickLoad('https://example.com')">example.com</button>
     <button class="pill" onclick="quickLoad('https://wttr.in/?format=v2')">Weather</button>
     <button class="pill" onclick="quickLoad('https://caniuse.com')">Can I Use</button>
+  </div>
+
+  <div style="display:flex; align-items:center; gap:10px;">
+    <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:12px; color:var(--muted); font-family:'Space Mono',monospace; user-select:none;">
+      <div style="position:relative; width:36px; height:20px;">
+        <input type="checkbox" id="proxy-toggle" onchange="toggleProxy(this)" style="opacity:0; position:absolute; width:0; height:0;" />
+        <div id="toggle-track" style="position:absolute; inset:0; border-radius:999px; background:var(--surface2); border:1px solid var(--border); transition:background 0.2s;"></div>
+        <div id="toggle-thumb" style="position:absolute; top:3px; left:3px; width:14px; height:14px; border-radius:50%; background:var(--muted); transition:transform 0.2s, background 0.2s;"></div>
+      </div>
+      <span id="proxy-label">proxy mode</span>
+    </label>
+    <span style="font-size:11px; color:rgba(122,117,160,0.5); font-family:'Space Mono',monospace;">routes via pohh.tflanigan.workers.dev</span>
   </div>
 
   <div class="status-bar">
@@ -419,10 +431,45 @@
   </div>
 </main>
 
-<footer>PORTAL — built with ❤️ | some sites block iframe embedding</footer>
+<footer>PORTAL — proxied via pohh.tflanigan.workers.dev | toggle proxy mode to bypass X-Frame-Options</footer>
 
 <script>
+  const PROXY_WORKER = 'https://pohh.tflanigan.workers.dev/proxy';
   let currentUrl = '';
+  let useProxy = true;
+
+  // Init toggle visual state
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('proxy-toggle').checked = useProxy;
+    if (useProxy) {
+      document.getElementById('toggle-track').style.background = 'var(--accent)';
+      document.getElementById('toggle-track').style.borderColor = 'var(--accent)';
+      document.getElementById('toggle-thumb').style.transform = 'translateX(16px)';
+      document.getElementById('toggle-thumb').style.background = '#fff';
+      document.getElementById('proxy-label').style.color = 'var(--accent2)';
+    }
+  });
+
+  function toggleProxy(el) {
+    useProxy = el.checked;
+    const track = document.getElementById('toggle-track');
+    const thumb = document.getElementById('toggle-thumb');
+    const label = document.getElementById('proxy-label');
+    if (useProxy) {
+      track.style.background = 'var(--accent)';
+      track.style.borderColor = 'var(--accent)';
+      thumb.style.transform = 'translateX(16px)';
+      thumb.style.background = '#fff';
+      label.style.color = 'var(--accent2)';
+    } else {
+      track.style.background = 'var(--surface2)';
+      track.style.borderColor = 'var(--border)';
+      thumb.style.transform = 'translateX(0)';
+      thumb.style.background = 'var(--muted)';
+      label.style.color = 'var(--muted)';
+    }
+    setStatus('', useProxy ? 'proxy mode on — routing via worker ⚡' : 'direct mode — no proxy');
+  }
 
   function normalizeUrl(raw) {
     raw = raw.trim();
@@ -434,8 +481,14 @@
   function setStatus(type, text) {
     const dot = document.getElementById('status-dot');
     const label = document.getElementById('status-text');
-    dot.className = 'status-dot ' + type;
+    dot.className = 'status-dot ' + (type || '');
     label.textContent = text;
+  }
+
+  function buildSrc(url) {
+    return useProxy
+      ? PROXY_WORKER + '?url=' + encodeURIComponent(url)
+      : url;
   }
 
   function loadUrl() {
@@ -451,10 +504,11 @@
     document.getElementById('placeholder').style.display = 'none';
     const frame = document.getElementById('site-frame');
     frame.style.display = 'block';
-    setStatus('loading', 'loading ' + url);
-    frame.src = url;
-    frame.onload = () => setStatus('ok', 'loaded — ' + url);
-    frame.onerror = () => setStatus('err', 'blocked or failed to load');
+    const src = buildSrc(url);
+    setStatus('loading', (useProxy ? '[proxy] ' : '[direct] ') + 'loading ' + url);
+    frame.src = src;
+    frame.onload = () => setStatus('ok', (useProxy ? '[proxy] ' : '[direct] ') + 'loaded — ' + url);
+    frame.onerror = () => setStatus('err', 'failed to load — try toggling proxy mode');
   }
 
   function reloadFrame() {
@@ -462,7 +516,7 @@
     if (currentUrl) {
       setStatus('loading', 'reloading...');
       frame.src = '';
-      setTimeout(() => { frame.src = currentUrl; }, 50);
+      setTimeout(() => { frame.src = buildSrc(currentUrl); }, 50);
     }
   }
 
