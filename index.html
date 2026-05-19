@@ -208,6 +208,19 @@
     background: rgba(123, 92, 250, 0.08);
   }
 
+  .pill-featured {
+    border-color: rgba(192, 132, 252, 0.4);
+    color: var(--accent2);
+    background: rgba(123, 92, 250, 0.1);
+    font-weight: 500;
+  }
+
+  .pill-featured:hover {
+    border-color: var(--accent2);
+    background: rgba(192, 132, 252, 0.18);
+    box-shadow: 0 0 12px rgba(192, 132, 252, 0.2);
+  }
+
   .status-bar {
     display: flex;
     align-items: center;
@@ -369,6 +382,7 @@
 
   <div class="pills">
     <span class="pills-label">Quick:</span>
+    <button class="pill pill-featured" onclick="quickLoad('https://proxyorb.com')">🔮 ProxyOrb</button>
     <button class="pill" onclick="quickLoad('https://en.wikipedia.org')">Wikipedia</button>
     <button class="pill" onclick="quickLoad('https://news.ycombinator.com')">Hacker News</button>
     <button class="pill" onclick="quickLoad('https://developer.mozilla.org')">MDN</button>
@@ -399,7 +413,7 @@
     <iframe
       id="site-frame"
       src=""
-      sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+      sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation allow-downloads"
       title="Loaded website"
     ></iframe>
   </div>
