@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Portal — URL Loader</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a28;
+    --border: rgba(120, 100, 255, 0.18);
+    --border-bright: rgba(120, 100, 255, 0.5);
+    --accent: #7b5cfa;
+    --accent2: #c084fc;
+    --text: #e8e4ff;
+    --muted: #7a75a0;
+    --danger: #f87171;
+    --success: #6ee7b7;
+    --glow: rgba(123, 92, 250, 0.35);
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 60% 40% at 20% 10%, rgba(123, 92, 250, 0.12) 0%, transparent 60%),
+      radial-gradient(ellipse 40% 30% at 80% 80%, rgba(192, 132, 252, 0.08) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  header {
+    position: relative;
+    z-index: 10;
+    padding: 1.5rem 2rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    border-bottom: 1px solid var(--border);
+    background: rgba(10, 10, 15, 0.8);
+    backdrop-filter: blur(12px);
+  }
+
+  .logo {
+    font-family: 'Space Mono', monospace;
+    font-size: 1.1rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: -0.02em;
+  }
+
+  .logo-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background: var(--accent);
+    border-radius: 50%;
+    margin-right: 8px;
+    box-shadow: 0 0 10px var(--glow);
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 10px var(--glow); }
+    50% { opacity: 0.6; box-shadow: 0 0 20px var(--glow); }
+  }
+
+  .main {
+    position: relative;
+    z-index: 10;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 2rem;
+    gap: 1.25rem;
+    max-width: 1200px;
+    width: 100%;
+    margin: 0 auto;
+  }
+
+  .input-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .url-input-wrap {
+    flex: 1;
+    position: relative;
+  }
+
+  .url-prefix {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    pointer-events: none;
+    user-select: none;
+  }
+
+  input[type="text"] {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.75rem 1rem 0.75rem 3rem;
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  input[type="text"]::placeholder { color: var(--muted); }
+
+  input[type="text"]:focus {
+    border-color: var(--border-bright);
+    box-shadow: 0 0 0 3px rgba(123, 92, 250, 0.12);
+  }
+
+  .btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 0.75rem 1.4rem;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 0 16px rgba(123, 92, 250, 0.3);
+  }
+
+  .btn:hover { background: #8f72ff; box-shadow: 0 0 24px rgba(123, 92, 250, 0.5); }
+  .btn:active { transform: scale(0.97); }
+
+  .btn-ghost {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    box-shadow: none;
+  }
+
+  .btn-ghost:hover {
+    border-color: var(--border-bright);
+    color: var(--text);
+    background: var(--surface2);
+    box-shadow: none;
+  }
+
+  .pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .pills-label {
+    font-size: 11px;
+    font-family: 'Space Mono', monospace;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .pill {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: 999px;
+    padding: 4px 14px;
+    font-size: 12px;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .pill:hover {
+    border-color: var(--border-bright);
+    color: var(--accent2);
+    background: rgba(123, 92, 250, 0.08);
+  }
+
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    min-height: 18px;
+    padding: 0 2px;
+  }
+
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--muted);
+    flex-shrink: 0;
+    transition: background 0.2s;
+  }
+
+  .status-dot.loading { background: var(--accent); animation: pulse 1s infinite; }
+  .status-dot.ok { background: var(--success); animation: none; }
+  .status-dot.err { background: var(--danger); animation: none; }
+
+  .frame-wrap {
+    flex: 1;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    background: var(--surface);
+    position: relative;
+    min-height: 520px;
+  }
+
+  .frame-chrome {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 14px;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .chrome-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+
+  .chrome-dot:nth-child(1) { background: #f87171; }
+  .chrome-dot:nth-child(2) { background: #fbbf24; }
+  .chrome-dot:nth-child(3) { background: #6ee7b7; }
+
+  .chrome-url {
+    flex: 1;
+    margin-left: 8px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 480px;
+    gap: 14px;
+    color: var(--muted);
+  }
+
+  .placeholder-icon {
+    font-size: 56px;
+    opacity: 0.15;
+  }
+
+  .placeholder p {
+    font-size: 14px;
+    color: var(--muted);
+  }
+
+  .placeholder small {
+    font-size: 11px;
+    font-family: 'Space Mono', monospace;
+    color: rgba(122, 117, 160, 0.6);
+    text-align: center;
+    max-width: 340px;
+    line-height: 1.6;
+  }
+
+  iframe {
+    display: none;
+    width: 100%;
+    height: 560px;
+    border: none;
+    background: #fff;
+  }
+
+  .spin {
+    display: inline-block;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  footer {
+    position: relative;
+    z-index: 10;
+    text-align: center;
+    padding: 1rem;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: rgba(122, 117, 160, 0.4);
+    border-top: 1px solid var(--border);
+  }
+
+  @media (max-width: 600px) {
+    .main { padding: 1rem; }
+    header { padding: 1rem; }
+    .btn span { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="logo-dot"></span>
+  <span class="logo">PORTAL</span>
+  <span style="font-size:12px; color: var(--muted); font-family: 'Space Mono', monospace; margin-left: auto;">url iframe loader</span>
+</header>
+
+<main class="main">
+  <div class="input-row">
+    <div class="url-input-wrap">
+      <span class="url-prefix">&#128279;</span>
+      <input
+        type="text"
+        id="url-input"
+        placeholder="https://example.com"
+        onkeydown="if(event.key==='Enter') loadUrl()"
+        autocomplete="off"
+        spellcheck="false"
+      />
+    </div>
+    <button class="btn" onclick="loadUrl()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      <span>Go</span>
+    </button>
+    <button class="btn btn-ghost" onclick="reloadFrame()" title="Reload">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+    </button>
+    <button class="btn btn-ghost" onclick="openExternal()" title="Open in new tab">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+    </button>
+  </div>
+
+  <div class="pills">
+    <span class="pills-label">Quick:</span>
+    <button class="pill" onclick="quickLoad('https://en.wikipedia.org')">Wikipedia</button>
+    <button class="pill" onclick="quickLoad('https://news.ycombinator.com')">Hacker News</button>
+    <button class="pill" onclick="quickLoad('https://developer.mozilla.org')">MDN</button>
+    <button class="pill" onclick="quickLoad('https://example.com')">example.com</button>
+    <button class="pill" onclick="quickLoad('https://wttr.in/?format=v2')">Weather</button>
+    <button class="pill" onclick="quickLoad('https://caniuse.com')">Can I Use</button>
+  </div>
+
+  <div class="status-bar">
+    <div class="status-dot" id="status-dot"></div>
+    <span id="status-text">ready</span>
+  </div>
+
+  <div class="frame-wrap">
+    <div class="frame-chrome">
+      <div class="chrome-dot"></div>
+      <div class="chrome-dot"></div>
+      <div class="chrome-dot"></div>
+      <span class="chrome-url" id="chrome-url">about:blank</span>
+    </div>
+
+    <div id="placeholder" class="placeholder">
+      <div class="placeholder-icon">🌐</div>
+      <p>Enter a URL above and hit Go</p>
+      <small>Note: some sites block iframe embedding via X-Frame-Options headers (Google, Twitter, etc). Try Wikipedia, HackerNews, MDN, or example.com.</small>
+    </div>
+
+    <iframe
+      id="site-frame"
+      src=""
+      sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+      title="Loaded website"
+    ></iframe>
+  </div>
+</main>
+
+<footer>PORTAL — built with ❤️ | some sites block iframe embedding</footer>
+
+<script>
+  let currentUrl = '';
+
+  function normalizeUrl(raw) {
+    raw = raw.trim();
+    if (!raw) return null;
+    if (!/^https?:\/\//i.test(raw)) raw = 'https://' + raw;
+    try { new URL(raw); return raw; } catch { return null; }
+  }
+
+  function setStatus(type, text) {
+    const dot = document.getElementById('status-dot');
+    const label = document.getElementById('status-text');
+    dot.className = 'status-dot ' + type;
+    label.textContent = text;
+  }
+
+  function loadUrl() {
+    const input = document.getElementById('url-input');
+    const url = normalizeUrl(input.value);
+    if (!url) {
+      setStatus('err', 'invalid url — try including https://');
+      return;
+    }
+    input.value = url;
+    currentUrl = url;
+    document.getElementById('chrome-url').textContent = url;
+    document.getElementById('placeholder').style.display = 'none';
+    const frame = document.getElementById('site-frame');
+    frame.style.display = 'block';
+    setStatus('loading', 'loading ' + url);
+    frame.src = url;
+    frame.onload = () => setStatus('ok', 'loaded — ' + url);
+    frame.onerror = () => setStatus('err', 'blocked or failed to load');
+  }
+
+  function reloadFrame() {
+    const frame = document.getElementById('site-frame');
+    if (currentUrl) {
+      setStatus('loading', 'reloading...');
+      frame.src = '';
+      setTimeout(() => { frame.src = currentUrl; }, 50);
+    }
+  }
+
+  function openExternal() {
+    if (currentUrl) window.open(currentUrl, '_blank', 'noopener');
+  }
+
+  function quickLoad(url) {
+    document.getElementById('url-input').value = url;
+    loadUrl();
+  }
+</script>
+</body>
+</html>
