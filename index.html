@@ -264,12 +264,7 @@
     border-bottom: 1px solid var(--border);
   }
 
-  .chrome-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-  }
-
+  .chrome-dot { width: 10px; height: 10px; border-radius: 50%; }
   .chrome-dot:nth-child(1) { background: #f87171; }
   .chrome-dot:nth-child(2) { background: #fbbf24; }
   .chrome-dot:nth-child(3) { background: #6ee7b7; }
@@ -295,15 +290,9 @@
     color: var(--muted);
   }
 
-  .placeholder-icon {
-    font-size: 56px;
-    opacity: 0.15;
-  }
+  .placeholder-icon { font-size: 56px; opacity: 0.15; }
 
-  .placeholder p {
-    font-size: 14px;
-    color: var(--muted);
-  }
+  .placeholder p { font-size: 14px; color: var(--muted); }
 
   .placeholder small {
     font-size: 11px;
@@ -322,12 +311,73 @@
     background: #fff;
   }
 
-  .spin {
-    display: inline-block;
-    animation: spin 0.8s linear infinite;
+  /* Worker panel */
+  .worker-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
   }
 
-  @keyframes spin { to { transform: rotate(360deg); } }
+  .worker-panel summary {
+    cursor: pointer;
+    color: var(--accent2);
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    user-select: none;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .worker-panel summary::before { content: '▶'; font-size: 9px; transition: transform 0.2s; }
+  .worker-panel[open] summary::before { transform: rotate(90deg); }
+
+  .worker-panel p { margin-top: 0.75rem; line-height: 1.7; }
+
+  .worker-config {
+    margin-top: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .worker-config label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+
+  .worker-config input {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    padding: 0.5rem 0.75rem;
+    outline: none;
+    width: 100%;
+    transition: border-color 0.2s;
+  }
+
+  .worker-config input:focus { border-color: var(--border-bright); }
+
+  .worker-save-btn {
+    margin-top: 6px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--accent2);
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+    align-self: flex-start;
+  }
+
+  .worker-save-btn:hover { border-color: var(--accent2); background: rgba(192,132,252,0.08); }
 
   footer {
     position: relative;
@@ -358,7 +408,7 @@
 <main class="main">
   <div class="input-row">
     <div class="url-input-wrap">
-      <span class="url-prefix">&#128279;</span>
+      <span class="url-prefix">🔗</span>
       <input
         type="text"
         id="url-input"
@@ -391,6 +441,7 @@
     <button class="pill" onclick="quickLoad('https://caniuse.com')">Can I Use</button>
   </div>
 
+  <!-- Proxy toggle row -->
   <div style="display:flex; align-items:center; gap:10px;">
     <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:12px; color:var(--muted); font-family:'Space Mono',monospace; user-select:none;">
       <div style="position:relative; width:36px; height:20px;">
@@ -400,8 +451,23 @@
       </div>
       <span id="proxy-label">proxy mode</span>
     </label>
-    <span style="font-size:11px; color:rgba(122,117,160,0.5); font-family:'Space Mono',monospace;">routes via pohh.tflanigan.workers.dev</span>
+    <span id="proxy-url-display" style="font-size:11px; color:rgba(122,117,160,0.5); font-family:'Space Mono',monospace;"></span>
   </div>
+
+  <!-- Worker config panel -->
+  <details class="worker-panel">
+    <summary>⚙️ PROXY WORKER CONFIG</summary>
+    <p>Set your Cloudflare Worker or Pages proxy URL below. This is used when proxy mode is ON.</p>
+    <div class="worker-config">
+      <label>Proxy Endpoint URL</label>
+      <input type="text" id="worker-url-input" placeholder="https://your-project.pages.dev/proxy" />
+      <button class="worker-save-btn" onclick="saveWorkerUrl()">💾 Save &amp; Apply</button>
+    </div>
+    <p style="margin-top:0.75rem; font-size:10px; color:rgba(122,117,160,0.5);">
+      ℹ️ Worker code is embedded in this page. Deploy it separately to Cloudflare Workers or Pages Functions.<br>
+      Allowed origins include: tflanigan-bit.github.io, localhost, 127.0.0.1
+    </p>
+  </details>
 
   <div class="status-bar">
     <div class="status-dot" id="status-dot"></div>
@@ -431,31 +497,159 @@
   </div>
 </main>
 
-<footer>PORTAL — proxied via pohh.tflanigan.workers.dev | toggle proxy mode to bypass X-Frame-Options</footer>
+<footer id="footer-text">PORTAL — proxy endpoint configurable above</footer>
+
+<!-- ============================================================
+     EMBEDDED WORKER LOGIC (reference / for Pages Functions deploy)
+     Deploy the function below as: functions/[[path]].js
+     ============================================================ -->
+<script id="worker-source" type="text/plain">
+// ============================================================
+//  PORTAL PROXY WORKER — deploy to your Cloudflare Worker or Pages Function
+//  Usage: https://your-worker.workers.dev/proxy?url=https://example.com
+// ============================================================
+
+const ALLOWED_ORIGINS = [
+  "https://tflanigan-bit.github.io",
+  "http://localhost",
+  "http://127.0.0.1",
+  "https://youtube.com",
+  "https://proxyorb.com",
+  "https://example.com"
+];
+
+const CORS_HEADERS = (origin) => ({
+  "Access-Control-Allow-Origin": ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0],
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+});
+
+export default {
+  async fetch(request, env, ctx) {
+    const url = new URL(request.url);
+    const origin = request.headers.get("Origin") || "";
+
+    if (request.method === "OPTIONS") {
+      return new Response(null, { status: 204, headers: CORS_HEADERS(origin) });
+    }
+
+    if (url.pathname !== "/proxy") {
+      return new Response(
+        JSON.stringify({ error: "Use /proxy?url=https://example.com" }),
+        { status: 404, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    const target = url.searchParams.get("url");
+
+    if (!target) {
+      return new Response(
+        JSON.stringify({ error: "Missing ?url= parameter" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    let targetUrl;
+    try {
+      targetUrl = new URL(target);
+      if (!["http:", "https:"].includes(targetUrl.protocol)) throw new Error();
+    } catch {
+      return new Response(
+        JSON.stringify({ error: "Invalid URL. Must be http or https." }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    let targetResponse;
+    try {
+      targetResponse = await fetch(targetUrl.toString(), {
+        method: request.method,
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36",
+          "Accept": request.headers.get("Accept") || "text/html,application/xhtml+xml,*/*",
+          "Accept-Language": "en-US,en;q=0.9",
+        },
+        redirect: "follow",
+      });
+    } catch (err) {
+      return new Response(
+        JSON.stringify({ error: "Failed to fetch target: " + err.message }),
+        { status: 502, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    const newHeaders = new Headers();
+    const STRIP_HEADERS = new Set([
+      "x-frame-options",
+      "content-security-policy",
+      "content-security-policy-report-only",
+    ]);
+
+    for (const [key, value] of targetResponse.headers.entries()) {
+      if (!STRIP_HEADERS.has(key.toLowerCase())) {
+        newHeaders.set(key, value);
+      }
+    }
+
+    for (const [key, value] of Object.entries(CORS_HEADERS(origin))) {
+      newHeaders.set(key, value);
+    }
+
+    const contentType = targetResponse.headers.get("content-type") || "";
+    if (contentType.includes("text/html")) {
+      let html = await targetResponse.text();
+      const base = `<base href="${targetUrl.origin}/">`;
+      html = html.replace(/<head([^>]*)>/i, `<head$1>${base}`);
+      newHeaders.set("Content-Type", "text/html; charset=utf-8");
+      return new Response(html, { status: targetResponse.status, headers: newHeaders });
+    }
+
+    return new Response(targetResponse.body, {
+      status: targetResponse.status,
+      headers: newHeaders,
+    });
+  },
+};
+</script>
 
 <script>
-  const PROXY_WORKER = 'https://pohh.tflanigan.workers.dev/proxy';
+  // ── Default proxy endpoint (editable in config panel) ──
+  const DEFAULT_PROXY = 'https://pohh.tflanigan.workers.dev/proxy';
+  const STORAGE_KEY = 'portal_proxy_url';
+
+  let PROXY_WORKER = localStorage.getItem(STORAGE_KEY) || DEFAULT_PROXY;
   let currentUrl = '';
   let useProxy = true;
 
-  // Init toggle visual state
-  document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('proxy-toggle').checked = useProxy;
-    if (useProxy) {
-      document.getElementById('toggle-track').style.background = 'var(--accent)';
-      document.getElementById('toggle-track').style.borderColor = 'var(--accent)';
-      document.getElementById('toggle-thumb').style.transform = 'translateX(16px)';
-      document.getElementById('toggle-thumb').style.background = '#fff';
-      document.getElementById('proxy-label').style.color = 'var(--accent2)';
-    }
-  });
+  function initUI() {
+    // Set worker input field
+    document.getElementById('worker-url-input').value = PROXY_WORKER;
+    updateProxyDisplay();
 
-  function toggleProxy(el) {
-    useProxy = el.checked;
+    // Init toggle
+    document.getElementById('proxy-toggle').checked = useProxy;
+    applyToggleStyle(useProxy);
+  }
+
+  function updateProxyDisplay() {
+    document.getElementById('proxy-url-display').textContent = 'routes via ' + PROXY_WORKER;
+    document.getElementById('footer-text').textContent = 'PORTAL — proxied via ' + PROXY_WORKER;
+  }
+
+  function saveWorkerUrl() {
+    const val = document.getElementById('worker-url-input').value.trim();
+    if (!val) return;
+    PROXY_WORKER = val;
+    localStorage.setItem(STORAGE_KEY, val);
+    updateProxyDisplay();
+    setStatus('ok', '✓ proxy url updated — ' + val);
+  }
+
+  function applyToggleStyle(on) {
     const track = document.getElementById('toggle-track');
     const thumb = document.getElementById('toggle-thumb');
     const label = document.getElementById('proxy-label');
-    if (useProxy) {
+    if (on) {
       track.style.background = 'var(--accent)';
       track.style.borderColor = 'var(--accent)';
       thumb.style.transform = 'translateX(16px)';
@@ -468,6 +662,11 @@
       thumb.style.background = 'var(--muted)';
       label.style.color = 'var(--muted)';
     }
+  }
+
+  function toggleProxy(el) {
+    useProxy = el.checked;
+    applyToggleStyle(useProxy);
     setStatus('', useProxy ? 'proxy mode on — routing via worker ⚡' : 'direct mode — no proxy');
   }
 
@@ -512,9 +711,9 @@
   }
 
   function reloadFrame() {
-    const frame = document.getElementById('site-frame');
     if (currentUrl) {
       setStatus('loading', 'reloading...');
+      const frame = document.getElementById('site-frame');
       frame.src = '';
       setTimeout(() => { frame.src = buildSrc(currentUrl); }, 50);
     }
@@ -528,6 +727,8 @@
     document.getElementById('url-input').value = url;
     loadUrl();
   }
+
+  document.addEventListener('DOMContentLoaded', initUI);
 </script>
 </body>
 </html>
